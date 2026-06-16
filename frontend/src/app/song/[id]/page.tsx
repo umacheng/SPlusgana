@@ -11,19 +11,22 @@ export default async function SongPage({ params }: { params: Promise<{ id: strin
 
   const supabase = await createClient();
 
-  const { data: song } = await supabase
+  const { data: songData } = await supabase
     .from("songs")
     .select("*")
     .eq("id", songId)
     .single();
 
+  const song = songData as Song | null;
   if (!song) notFound();
 
-  const { data: lyrics } = await supabase
+  const { data: lyricsData } = await supabase
     .from("lyrics_lines")
     .select("*")
     .eq("song_id", songId)
     .order("line_number");
+
+  const lyrics = (lyricsData ?? []) as LyricLine[];
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -34,7 +37,7 @@ export default async function SongPage({ params }: { params: Promise<{ id: strin
         <span className="text-gray-700">/</span>
         <h1 className="text-sm text-gray-400 truncate">{song.title}</h1>
       </header>
-      <SongPlayer song={song as Song} lyrics={(lyrics ?? []) as LyricLine[]} />
+      <SongPlayer song={song} lyrics={lyrics} />
     </div>
   );
 }
