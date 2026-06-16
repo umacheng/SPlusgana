@@ -17,13 +17,17 @@
       "Bash(gh auth *)",
       "PowerShell(git credential-manager --version 2>$null)",
       "PowerShell(git config --global credential.helper)",
-      "Bash(rm -rf \"c:/Users/umach/OneDrive/桌面/SPlusgana/frontend/.git\" && echo \"removed frontend/.git\")"
+      "Bash(rm -rf \"c:/Users/umach/OneDrive/桌面/SPlusgana/frontend/.git\" && echo \"removed frontend/.git\")",
+      "Bash(git check-ignore *)",
+      "Bash(ls *.docx)",
+      "WebFetch(domain:s-plusgana.vercel.app)"
     ],
     "additionalDirectories": [
       "c:\\Users\\umach\\OneDrive\\�ୱ\\SPlusgana\\backend",
       "c:\\Users\\umach\\.claude\\projects\\c--Users-umach-OneDrive----SPlusgana\\memory",
       "c:\\Users\\umach\\OneDrive\\�ୱ\\SPlusgana\\frontend\\src",
-      "c:\\Users\\umach\\OneDrive\\桌面\\SPlusgana\\frontend\\.git"
+      "c:\\Users\\umach\\OneDrive\\桌面\\SPlusgana\\frontend\\.git",
+      "c:\\Users\\umach\\OneDrive\\�ୱ\\SPlusgana\\frontend\\src\\app\\song"
     ]
   }
 }
