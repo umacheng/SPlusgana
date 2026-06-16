@@ -1,4 +1,5 @@
 import re
+import urllib.parse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -11,7 +12,6 @@ HEADERS = {
     )
 }
 
-# 支援的歌詞網站解析策略
 _SITE_SELECTORS: dict[str, str] = {
     "uta-net.com": "div#kashi_area",
     "utamap.com": "div#kasi_area",
@@ -43,15 +43,13 @@ def fetch_lyrics_from_url(url: str) -> str:
 
     selector = _find_selector(url)
     if selector:
-        tag, _, cls = selector.partition(" ")  # e.g. "div#kashi_area"
         container = soup.select_one(selector)
         if container:
             for br in container.find_all("br"):
                 br.replace_with("\n")
             return _clean_text(container.get_text())
 
-    # 通用 fallback：尋找最大文字塊
-    candidates = soup.find_all(["div", "p", "article"], class_=re.compile(r"lyric|kashi|kasi|lyric", re.I))
+    candidates = soup.find_all(["div", "p", "article"], class_=re.compile(r"lyric|kashi|kasi", re.I))
     if candidates:
         best = max(candidates, key=lambda el: len(el.get_text()))
         for br in best.find_all("br"):
@@ -61,22 +59,38 @@ def fetch_lyrics_from_url(url: str) -> str:
     raise ValueError(f"無法在 {url} 找到歌詞內容，請手動貼上歌詞。")
 
 
-def search_lyrics_url(title: str, artist: str) -> str | None:
-    """透過搜尋引擎找出歌詞頁面 URL（回傳第一個可信結果）"""
-    query = f"{title} {artist} 歌詞 site:uta-net.com OR site:utamap.com"
-    search_url = f"https://www.google.com/search?q={httpx.QueryParams({'q': query})}"
-
-    with httpx.Client(headers=HEADERS, timeout=10, follow_redirects=True) as client:
-        resp = client.get(search_url)
-
-    soup = BeautifulSoup(resp.text, "html.parser")
-
-    trusted_domains = list(_SITE_SELECTORS.keys())
-    for a_tag in soup.find_all("a", href=True):
-        href: str = a_tag["href"]
-        if any(d in href for d in trusted_domains):
-            # 過濾 Google redirect
-            if href.startswith("http") and "google" not in href:
-                return href
-
+def _search_uta_net(title: str, artist: str) -> str | None:
+    """直接搜尋 uta-net.com（不依賴 Google）"""
+    kw = urllib.parse.quote(f"{title} {artist}")
+    url = f"https://www.uta-net.com/search/?Aselect=2&Vselect=0&KWRD={kw}"
+    try:
+        with httpx.Client(headers=HEADERS, timeout=10, follow_redirects=True) as client:
+            resp = client.get(url)
+        soup = BeautifulSoup(resp.text, "html.parser")
+        for a in soup.find_all("a", href=re.compile(r"^/song/\d+")):
+            return f"https://www.uta-net.com{a['href']}"
+    except Exception:
+        pass
     return None
+
+
+def _search_utamap(title: str, artist: str) -> str | None:
+    """直接搜尋 utamap.com"""
+    kw = urllib.parse.quote(f"{title} {artist}")
+    url = f"https://www.utamap.com/searchkasi.php?strkey={kw}&shrtarget=titol"
+    try:
+        with httpx.Client(headers=HEADERS, timeout=10, follow_redirects=True) as client:
+            resp = client.get(url)
+        soup = BeautifulSoup(resp.text, "html.parser")
+        for a in soup.find_all("a", href=re.compile(r"showkasi\.php")):
+            href = a["href"]
+            if not href.startswith("http"):
+                href = f"https://www.utamap.com/{href}"
+            return href
+    except Exception:
+        pass
+    return None
+
+
+def search_lyrics_url(title: str, artist: str) -> str | None:
+    return _search_uta_net(title, artist) or _search_utamap(title, artist)

@@ -17,11 +17,18 @@ interface Props {
   lyrics: LyricLine[];
 }
 
+function formatTime(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
   const [lyrics, setLyrics] = useState<LyricLine[]>(initialLyrics);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [playerReady, setPlayerReady] = useState(false);
   const [isEditingTime, setIsEditingTime] = useState(false);
+  const [markIndex, setMarkIndex] = useState(0);
   const [saved, setSaved] = useState(false);
   const [showManualInput, setShowManualInput] = useState(false);
   const [manualText, setManualText] = useState("");
@@ -32,6 +39,7 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const activeLineRef = useRef<HTMLParagraphElement>(null);
+  const editPanelRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
   const hasTimeMarkers = lyrics.some((l) => l.time_marker > 0);
@@ -76,43 +84,61 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
   }, [song.youtube_id]);
 
   useEffect(() => {
-    if (!playerReady || !hasTimeMarkers) return;
+    if (!playerReady || !hasTimeMarkers || isEditingTime) return;
     const interval = setInterval(() => {
       const time: number = playerRef.current?.getCurrentTime?.() ?? 0;
       let active = 0;
       for (let i = 0; i < lyrics.length; i++) {
-        if (lyrics[i].time_marker <= time) active = i;
+        if (lyrics[i].time_marker > 0 && lyrics[i].time_marker <= time) active = i;
       }
       setActiveIndex(active);
     }, 200);
     return () => clearInterval(interval);
-  }, [playerReady, hasTimeMarkers, lyrics]);
+  }, [playerReady, hasTimeMarkers, isEditingTime, lyrics]);
 
   useEffect(() => {
-    if (activeIndex >= 0) {
+    if (activeIndex >= 0 && !isEditingTime) {
       activeLineRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-  }, [activeIndex]);
+  }, [activeIndex, isEditingTime]);
 
-  const handleKeyDown = useCallback(async (e: KeyboardEvent) => {
-    if (!isEditingTime || e.code !== "Space") return;
-    e.preventDefault();
-    const time: number = playerRef.current?.getCurrentTime?.() ?? 0;
-    setActiveIndex((prev) => {
-      const next = prev + 1;
-      if (next >= lyrics.length) return prev;
-      const line = lyrics[next];
-      supabase.from("lyrics_lines").update({ time_marker: time }).eq("id", line.id).then(() => {
-        setLyrics((ls) => ls.map((l, i) => (i === next ? { ...l, time_marker: time } : l)));
-      });
-      return next;
-    });
-  }, [isEditingTime, lyrics]);
-
+  // 進入打點模式後 focus 打點面板，讓 Space 鍵不被 iframe 攔截
   useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
+    if (isEditingTime) {
+      setMarkIndex(0);
+      editPanelRef.current?.focus();
+    }
+  }, [isEditingTime]);
+
+  const markTime = useCallback(() => {
+    const time: number = playerRef.current?.getCurrentTime?.() ?? 0;
+    setMarkIndex((prev) => {
+      const idx = prev;
+      if (idx >= lyrics.length) return prev;
+      const line = lyrics[idx];
+      supabase
+        .from("lyrics_lines")
+        .update({ time_marker: time })
+        .eq("id", line.id)
+        .then(() => {
+          setLyrics((ls) =>
+            ls.map((l, i) => (i === idx ? { ...l, time_marker: time } : l))
+          );
+        });
+      return prev + 1;
+    });
+  }, [lyrics]);
+
+  // Space 鍵：只在 window 層監聽，若焦點在 iframe 內則無效
+  // 主要靠打點面板的 onKeyDown 捕捉
+  const handlePanelKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.code !== "Space") return;
+      e.preventDefault();
+      markTime();
+    },
+    [markTime]
+  );
 
   function seekTo(time: number) {
     playerRef.current?.seekTo?.(time, true);
@@ -174,11 +200,12 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
           </button>
         </div>
 
-        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4 space-y-2">
+        {/* 時間軸打點面板 */}
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-300">時間軸打點</span>
             <button
-              onClick={() => { setIsEditingTime(!isEditingTime); setActiveIndex(-1); }}
+              onClick={() => setIsEditingTime(!isEditingTime)}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                 isEditingTime ? "bg-yellow-400 text-gray-950" : "border border-gray-700 text-gray-400 hover:border-yellow-600 hover:text-yellow-400"
               }`}
@@ -186,15 +213,47 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
               {isEditingTime ? "完成打點" : "開始打點"}
             </button>
           </div>
+
           {isEditingTime && (
-            <p className="text-xs text-gray-500 leading-relaxed">
-              播放歌曲，唱到每句時按{" "}
-              <kbd className="px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-300 font-mono">Space</kbd>{" "}
-              自動記錄時間戳，依序往下打點。
-            </p>
+            <div
+              ref={editPanelRef}
+              tabIndex={0}
+              onKeyDown={handlePanelKeyDown}
+              className="outline-none space-y-3"
+            >
+              <p className="text-xs text-gray-500 leading-relaxed">
+                播放歌曲後，唱到每句時點擊下方按鈕（或先點此區域再按{" "}
+                <kbd className="px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-300 font-mono">Space</kbd>
+                ），依序往下打點。
+              </p>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={markTime}
+                  disabled={markIndex >= lyrics.length}
+                  className="flex-1 py-3 rounded-xl bg-yellow-400 text-gray-950 font-semibold text-sm hover:bg-yellow-300 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ⏱ 打點（Space）
+                </button>
+                <button
+                  onClick={() => setMarkIndex(Math.max(0, markIndex - 1))}
+                  disabled={markIndex === 0}
+                  className="px-3 py-3 rounded-xl border border-gray-700 text-gray-400 text-xs hover:border-gray-500 disabled:opacity-30"
+                >
+                  ← 退一句
+                </button>
+              </div>
+
+              <p className="text-xs text-center text-gray-500">
+                {markIndex < lyrics.length
+                  ? `下一句（第 ${markIndex + 1} / ${lyrics.length}）：${lyrics[markIndex]?.raw_text ?? ""}`
+                  : "全部打點完成 🎉"}
+              </p>
+            </div>
           )}
         </div>
 
+        {/* 手動修正歌詞 */}
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-300">歌詞不對？手動修正</span>
@@ -237,6 +296,7 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
         </div>
       </div>
 
+      {/* 歌詞面板 */}
       <div className="lyrics-panel flex-1 overflow-y-auto p-4 md:p-6 border-t md:border-t-0 md:border-l border-gray-800">
         {lyrics.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-3 text-gray-600">
@@ -245,19 +305,40 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
           </div>
         ) : (
           <div className="max-w-lg mx-auto md:mx-0 space-y-1">
-            {!hasTimeMarkers && (
+            {!hasTimeMarkers && !isEditingTime && (
               <p className="text-xs text-gray-600 mb-4 px-3">歌詞已載入。使用左側「時間軸打點」功能設定同步時間點。</p>
             )}
             {lyrics.map((line, i) => (
-              <p
+              <div
                 key={line.id}
-                ref={i === activeIndex ? activeLineRef : null}
-                onClick={() => hasTimeMarkers && seekTo(line.time_marker)}
-                className={`text-xl md:text-2xl leading-loose py-2 px-3 rounded-lg transition-all duration-200 ${
-                  i === activeIndex ? "lyric-active cursor-default" : hasTimeMarkers ? "text-gray-500 hover:text-gray-300 cursor-pointer" : "text-gray-400"
-                }`}
-                dangerouslySetInnerHTML={{ __html: line.html_text || line.raw_text }}
-              />
+                className={`flex items-baseline gap-2 py-2 px-3 rounded-lg transition-all duration-200 ${
+                  isEditingTime && i === markIndex
+                    ? "bg-yellow-400/10 border border-yellow-400/30"
+                    : i === activeIndex && !isEditingTime
+                    ? "lyric-active"
+                    : ""
+                } ${hasTimeMarkers && !isEditingTime ? "cursor-pointer hover:text-gray-300" : ""}`}
+                onClick={() => !isEditingTime && hasTimeMarkers && seekTo(line.time_marker)}
+              >
+                <p
+                  ref={i === activeIndex && !isEditingTime ? activeLineRef : null}
+                  className={`flex-1 text-xl md:text-2xl leading-loose ${
+                    isEditingTime && i === markIndex
+                      ? "text-yellow-300"
+                      : isEditingTime && i < markIndex
+                      ? "text-gray-600"
+                      : i === activeIndex && !isEditingTime
+                      ? "text-white"
+                      : "text-gray-500"
+                  }`}
+                  dangerouslySetInnerHTML={{ __html: line.html_text || line.raw_text }}
+                />
+                {isEditingTime && line.time_marker > 0 && (
+                  <span className="shrink-0 text-xs text-yellow-500 font-mono tabular-nums">
+                    {formatTime(line.time_marker)}
+                  </span>
+                )}
+              </div>
             ))}
           </div>
         )}
