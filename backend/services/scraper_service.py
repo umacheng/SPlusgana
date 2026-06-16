@@ -60,17 +60,18 @@ def fetch_lyrics_from_url(url: str) -> str:
 
 
 def _search_uta_net(title: str, artist: str) -> str | None:
-    """直接搜尋 uta-net.com（不依賴 Google）"""
-    kw = urllib.parse.quote(f"{title} {artist}")
-    url = f"https://www.uta-net.com/search/?Aselect=2&Vselect=0&KWRD={kw}"
-    try:
-        with httpx.Client(headers=HEADERS, timeout=10, follow_redirects=True) as client:
-            resp = client.get(url)
-        soup = BeautifulSoup(resp.text, "html.parser")
-        for a in soup.find_all("a", href=re.compile(r"^/song/\d+")):
-            return f"https://www.uta-net.com{a['href']}"
-    except Exception:
-        pass
+    """直接搜尋 uta-net.com（先用歌名，不到再加 artist）"""
+    for kw in [title, f"{title} {artist}"]:
+        encoded = urllib.parse.quote(kw)
+        url = f"https://www.uta-net.com/search/?Aselect=2&Vselect=0&KWRD={encoded}"
+        try:
+            with httpx.Client(headers=HEADERS, timeout=10, follow_redirects=True) as client:
+                resp = client.get(url)
+            soup = BeautifulSoup(resp.text, "html.parser")
+            for a in soup.find_all("a", href=re.compile(r"^/song/\d+")):
+                return f"https://www.uta-net.com{a['href']}"
+        except Exception:
+            pass
     return None
 
 
