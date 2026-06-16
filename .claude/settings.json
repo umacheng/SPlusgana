@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/umach/OneDrive/�ୱ/**)",
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell(python --version)",
+      "Read(//c/Users/umach/.claude/projects/c--Users-umach-OneDrive----SPlusgana/memory/**)",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\umach\\\\OneDrive\\\\�ୱ\\\\SPlusgana\\\\frontend\\\\src\\\\app\\\\demo\")",
+      "Bash(npm run *)",
+      "Read(//tmp/**)",
+      "Bash(pkill -f \"next dev\")",
+      "PowerShell(taskkill /PID 35404 /F)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/demo)",
+      "Bash(git config *)",
+      "Bash(gh auth *)",
+      "PowerShell(git credential-manager --version 2>$null)",
+      "PowerShell(git config --global credential.helper)",
+      "Bash(rm -rf \"c:/Users/umach/OneDrive/桌面/SPlusgana/frontend/.git\" && echo \"removed frontend/.git\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\umach\\OneDrive\\�ୱ\\SPlusgana\\backend",
+      "c:\\Users\\umach\\.claude\\projects\\c--Users-umach-OneDrive----SPlusgana\\memory",
+      "c:\\Users\\umach\\OneDrive\\�ୱ\\SPlusgana\\frontend\\src",
+      "c:\\Users\\umach\\OneDrive\\桌面\\SPlusgana\\frontend\\.git"
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+# ===== 機密文件 =====
+金鑰與密碼.docx
+~$金鑰與密碼.docx
+
+# ===== 環境變數（絕對不能推上 GitHub）=====
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# ===== Next.js =====
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+frontend/.env
+frontend/.env.local
+
+# ===== Python =====
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/.venv/
+backend/venv/
+backend/env/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== 編輯器 =====
+.vscode/settings.json
+.idea/
+*.swp
+
+# ===== 系統文件 =====
+~$*.docx
+~$*.xlsx
+~$*.pptx

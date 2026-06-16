@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+:root {
+  --background: #030712;
+  --foreground: #f1f5f9;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+}
+
+/* furigana ruby 標籤樣式 */
+ruby {
+  ruby-align: center;
+}
+rt {
+  font-size: 0.55em;
+  color: #94a3b8;
+  letter-spacing: 0.05em;
+}
+
+/* active 歌詞高亮 */
+.lyric-active {
+  color: #facc15;
+  font-size: 1.15em;
+  text-shadow: 0 0 20px rgba(250, 204, 21, 0.4);
+  transition: all 0.2s ease;
+}
+.lyric-active rt {
+  color: #fde68a;
+}
+
+/* 歌詞面板捲軸美化 */
+.lyrics-panel::-webkit-scrollbar {
+  width: 4px;
+}
+.lyrics-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.lyrics-panel::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 9999px;
+}
