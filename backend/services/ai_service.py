@@ -17,7 +17,7 @@ _SYSTEM_PROMPT = (
 def annotate_with_furigana(raw_lyrics: str) -> str:
     """送 raw_lyrics 給 Gemini，回傳帶 <ruby> 標籤的 HTML 歌詞字串"""
     response = _client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-2.0-flash-lite",
         contents=f"{_SYSTEM_PROMPT}\n\n{raw_lyrics}",
         config=types.GenerateContentConfig(
             temperature=0.1,
