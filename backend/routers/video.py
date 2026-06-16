@@ -72,26 +72,53 @@ async def process_video(body: ProcessVideoRequest):
             .order("line_number")
             .execute()
         )
-        return ProcessVideoResponse(
-            song_id=song["id"],
-            youtube_id=song["youtube_id"],
-            title=song["title"],
-            artist=song["artist"],
-            thumbnail_url=song["thumbnail_url"],
-            duration=song["duration"],
-            source_url=song["source_url"],
-            lyrics_lines=lines_res.data or [],
+        cached_lines = lines_res.data or []
+
+        # 如果已有歌詞就直接回傳，不重複處理
+        if cached_lines:
+            return ProcessVideoResponse(
+                song_id=song["id"],
+                youtube_id=song["youtube_id"],
+                title=song["title"],
+                artist=song["artist"],
+                thumbnail_url=song["thumbnail_url"],
+                duration=song["duration"],
+                source_url=song["source_url"],
+                lyrics_lines=cached_lines,
+            )
+
+        # 歌曲存在但沒有歌詞（上次爬取失敗），重新嘗試爬取
+        song_id: int = song["id"]
+        source_url: str | None = song.get("source_url")
+    else:
+        # Step 5a: 歌曲不存在，先建立
+        song_res = (
+            supabase.table("songs")
+            .insert({
+                "youtube_id": video.youtube_id,
+                "title": video.title,
+                "artist": video.artist,
+                "thumbnail_url": video.thumbnail_url,
+                "duration": video.duration,
+                "source_url": None,
+            })
+            .execute()
         )
+        song_id = song_res.data[0]["id"]
+        source_url = None
 
     # Step 3: 爬取歌詞
-    source_url: str | None = None
     raw_lyrics = ""
     try:
-        source_url = search_lyrics_url(video.title, video.artist)
+        if not source_url:
+            source_url = search_lyrics_url(video.title, video.artist)
         if source_url:
             raw_lyrics = fetch_lyrics_from_url(source_url)
-    except Exception:
-        raw_lyrics = ""  # 爬蟲失敗時讓前端提示手動貼上
+            # 更新 source_url
+            supabase.table("songs").update({"source_url": source_url}).eq("id", song_id).execute()
+    except Exception as e:
+        print(f"[video] scrape failed: {e}")
+        raw_lyrics = ""
 
     # Step 4: AI 標注（有歌詞才送 AI）
     lyrics_lines: list[dict] = []
@@ -101,21 +128,7 @@ async def process_video(body: ProcessVideoRequest):
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"AI 標注失敗：{e}")
 
-    # Step 5: 寫入 Supabase
-    song_res = (
-        supabase.table("songs")
-        .insert({
-            "youtube_id": video.youtube_id,
-            "title": video.title,
-            "artist": video.artist,
-            "thumbnail_url": video.thumbnail_url,
-            "duration": video.duration,
-            "source_url": source_url,
-        })
-        .execute()
-    )
-    song_id: int = song_res.data[0]["id"]
-
+    # Step 5b: 寫入歌詞行
     if lyrics_lines:
         rows = [{"song_id": song_id, **line} for line in lyrics_lines]
         supabase.table("lyrics_lines").insert(rows).execute()
