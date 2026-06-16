@@ -36,14 +36,11 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
 
   const hasTimeMarkers = lyrics.some((l) => l.time_marker > 0);
 
-  // 取得目前登入使用者
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
-    // 檢查是否已收藏
     supabase.auth.getUser().then(async ({ data }) => {
+      setUserId(data.user?.id ?? null);
       if (!data.user) return;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: pl } = await (supabase as any)
+      const { data: pl } = await supabase
         .from("playlists")
         .select("id")
         .eq("user_id", data.user.id)
@@ -53,16 +50,13 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
     });
   }, []);
 
-  // 初始化 YouTube IFrame API
   useEffect(() => {
     const loadPlayer = () => {
       if (!containerRef.current) return;
       playerRef.current = new window.YT.Player(containerRef.current, {
         videoId: song.youtube_id,
         playerVars: { rel: 0, modestbranding: 1 },
-        events: {
-          onReady: () => setPlayerReady(true),
-        },
+        events: { onReady: () => setPlayerReady(true) },
       });
     };
 
@@ -78,11 +72,9 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
       }
       window.onYouTubeIframeAPIReady = loadPlayer;
     }
-
     return () => { playerRef.current?.destroy?.(); };
   }, [song.youtube_id]);
 
-  // 時間軸同步
   useEffect(() => {
     if (!playerReady || !hasTimeMarkers) return;
     const interval = setInterval(() => {
@@ -96,14 +88,12 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
     return () => clearInterval(interval);
   }, [playerReady, hasTimeMarkers, lyrics]);
 
-  // 自動捲動到 active 歌詞
   useEffect(() => {
     if (activeIndex >= 0) {
       activeLineRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [activeIndex]);
 
-  // 打點器：Space 鍵捕捉時間
   const handleKeyDown = useCallback(async (e: KeyboardEvent) => {
     if (!isEditingTime || e.code !== "Space") return;
     e.preventDefault();
@@ -111,13 +101,9 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
     setActiveIndex((prev) => {
       const next = prev + 1;
       if (next >= lyrics.length) return prev;
-      // 更新 Supabase
       const line = lyrics[next];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from("lyrics_lines") as any).update({ time_marker: time }).eq("id", line.id).then(() => {
-        setLyrics((ls) =>
-          ls.map((l, i) => (i === next ? { ...l, time_marker: time } : l))
-        );
+      supabase.from("lyrics_lines").update({ time_marker: time }).eq("id", line.id).then(() => {
+        setLyrics((ls) => ls.map((l, i) => (i === next ? { ...l, time_marker: time } : l)));
       });
       return next;
     });
@@ -128,26 +114,21 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  // 點歌詞跳轉
   function seekTo(time: number) {
     playerRef.current?.seekTo?.(time, true);
   }
 
-  // 收藏 / 取消收藏
   async function toggleSave() {
     if (!userId) { alert("請先登入才能收藏歌曲"); return; }
     if (saved) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("playlists") as any).delete().eq("user_id", userId).eq("song_id", song.id);
+      await supabase.from("playlists").delete().eq("user_id", userId).eq("song_id", song.id);
       setSaved(false);
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("playlists") as any).insert({ user_id: userId, song_id: song.id });
+      await supabase.from("playlists").insert({ user_id: userId, song_id: song.id });
       setSaved(true);
     }
   }
 
-  // 手動送出歌詞文字
   async function submitManualText() {
     if (!manualText.trim()) return;
     setProcessing(true);
@@ -159,7 +140,6 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
     } finally { setProcessing(false); }
   }
 
-  // 手動送出歌詞網址
   async function submitManualUrl() {
     if (!manualUrl.trim()) return;
     setProcessing(true);
@@ -173,14 +153,11 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
 
   return (
     <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-      {/* ── 左側 / 上方：播放器 ── */}
       <div className="md:w-[45%] flex flex-col gap-4 p-4 md:p-6 shrink-0 md:overflow-y-auto">
-        {/* 影片 */}
         <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-gray-900">
           <div ref={containerRef} className="w-full h-full" />
         </div>
 
-        {/* 歌曲資訊 */}
         <div className="flex items-start gap-3">
           <img src={song.thumbnail_url} alt={song.title} className="w-14 h-14 rounded-lg object-cover shrink-0" />
           <div className="flex-1 min-w-0">
@@ -190,16 +167,13 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
           <button
             onClick={toggleSave}
             className={`shrink-0 px-3 py-1.5 rounded-full border text-sm transition-colors ${
-              saved
-                ? "bg-yellow-400 border-yellow-400 text-gray-950 font-medium"
-                : "border-gray-700 text-gray-400 hover:border-yellow-600 hover:text-yellow-400"
+              saved ? "bg-yellow-400 border-yellow-400 text-gray-950 font-medium" : "border-gray-700 text-gray-400 hover:border-yellow-600 hover:text-yellow-400"
             }`}
           >
             {saved ? "✓ 已收藏" : "+ 收藏"}
           </button>
         </div>
 
-        {/* 打點器 */}
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-300">時間軸打點</span>
@@ -216,19 +190,15 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
             <p className="text-xs text-gray-500 leading-relaxed">
               播放歌曲，唱到每句時按{" "}
               <kbd className="px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-300 font-mono">Space</kbd>{" "}
-              自動記錄時間戳，系統將依序往下打點。
+              自動記錄時間戳，依序往下打點。
             </p>
           )}
         </div>
 
-        {/* 手動修正歌詞 */}
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-300">歌詞不對？手動修正</span>
-            <button
-              onClick={() => setShowManualInput(!showManualInput)}
-              className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-            >
+            <button onClick={() => setShowManualInput(!showManualInput)} className="text-xs text-gray-500 hover:text-gray-300 transition-colors">
               {showManualInput ? "收起" : "展開"}
             </button>
           </div>
@@ -244,11 +214,7 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
                     placeholder="https://www.uta-net.com/..."
                     className="flex-1 px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-white placeholder-gray-600 text-xs focus:outline-none focus:border-yellow-500"
                   />
-                  <button
-                    onClick={submitManualUrl}
-                    disabled={processing || !manualUrl.trim()}
-                    className="px-3 py-2 rounded-lg bg-yellow-400 text-gray-950 text-xs font-medium disabled:opacity-50"
-                  >
+                  <button onClick={submitManualUrl} disabled={processing || !manualUrl.trim()} className="px-3 py-2 rounded-lg bg-yellow-400 text-gray-950 text-xs font-medium disabled:opacity-50">
                     {processing ? "…" : "抓取"}
                   </button>
                 </div>
@@ -259,14 +225,10 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
                   value={manualText}
                   onChange={(e) => setManualText(e.target.value)}
                   rows={6}
-                  placeholder={"一行一句歌詞…"}
+                  placeholder="一行一句歌詞…"
                   className="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-white placeholder-gray-600 text-xs focus:outline-none focus:border-yellow-500 resize-none"
                 />
-                <button
-                  onClick={submitManualText}
-                  disabled={processing || !manualText.trim()}
-                  className="w-full py-2 rounded-lg bg-yellow-400 text-gray-950 text-xs font-medium disabled:opacity-50"
-                >
+                <button onClick={submitManualText} disabled={processing || !manualText.trim()} className="w-full py-2 rounded-lg bg-yellow-400 text-gray-950 text-xs font-medium disabled:opacity-50">
                   {processing ? "AI 標注中…" : "重新標注"}
                 </button>
               </div>
@@ -275,7 +237,6 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
         </div>
       </div>
 
-      {/* ── 右側 / 下方：歌詞面板 ── */}
       <div className="lyrics-panel flex-1 overflow-y-auto p-4 md:p-6 border-t md:border-t-0 md:border-l border-gray-800">
         {lyrics.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-3 text-gray-600">
@@ -285,9 +246,7 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
         ) : (
           <div className="max-w-lg mx-auto md:mx-0 space-y-1">
             {!hasTimeMarkers && (
-              <p className="text-xs text-gray-600 mb-4 px-3">
-                歌詞已載入。使用左側「時間軸打點」功能設定同步時間點。
-              </p>
+              <p className="text-xs text-gray-600 mb-4 px-3">歌詞已載入。使用左側「時間軸打點」功能設定同步時間點。</p>
             )}
             {lyrics.map((line, i) => (
               <p
@@ -295,11 +254,7 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
                 ref={i === activeIndex ? activeLineRef : null}
                 onClick={() => hasTimeMarkers && seekTo(line.time_marker)}
                 className={`text-xl md:text-2xl leading-loose py-2 px-3 rounded-lg transition-all duration-200 ${
-                  i === activeIndex
-                    ? "lyric-active cursor-default"
-                    : hasTimeMarkers
-                    ? "text-gray-500 hover:text-gray-300 cursor-pointer"
-                    : "text-gray-400"
+                  i === activeIndex ? "lyric-active cursor-default" : hasTimeMarkers ? "text-gray-500 hover:text-gray-300 cursor-pointer" : "text-gray-400"
                 }`}
                 dangerouslySetInnerHTML={{ __html: line.html_text || line.raw_text }}
               />
