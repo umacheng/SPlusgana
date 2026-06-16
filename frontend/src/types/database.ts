@@ -107,6 +107,7 @@ export type Playlist = Database['public']['Tables']['playlists']['Row']
 
 // 後端回傳的歌曲處理結果
 export interface ProcessVideoResponse {
+  song_id: number
   youtube_id: string
   title: string
   artist: string
@@ -117,5 +118,6 @@ export interface ProcessVideoResponse {
     line_number: number
     raw_text: string
     html_text: string
+    time_marker: number
   }[]
 }
