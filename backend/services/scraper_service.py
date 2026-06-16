@@ -60,38 +60,55 @@ def fetch_lyrics_from_url(url: str) -> str:
 
 
 def _search_uta_net(title: str, artist: str) -> str | None:
-    """直接搜尋 uta-net.com（先用歌名，不到再加 artist）"""
+    """直接搜尋 uta-net.com"""
     for kw in [title, f"{title} {artist}"]:
-        encoded = urllib.parse.quote(kw)
-        url = f"https://www.uta-net.com/search/?Aselect=2&Vselect=0&KWRD={encoded}"
+        encoded = urllib.parse.quote_plus(kw)
+        search_url = f"https://www.uta-net.com/search/?Aselect=2&Vselect=0&KWRD={encoded}"
         try:
             with httpx.Client(headers=HEADERS, timeout=10, follow_redirects=True) as client:
-                resp = client.get(url)
+                resp = client.get(search_url)
+            print(f"[scraper] uta-net search '{kw}' → HTTP {resp.status_code}")
             soup = BeautifulSoup(resp.text, "html.parser")
-            for a in soup.find_all("a", href=re.compile(r"^/song/\d+")):
-                return f"https://www.uta-net.com{a['href']}"
-        except Exception:
-            pass
+            for a in soup.find_all("a", href=True):
+                href: str = a["href"]
+                if re.search(r"/song/\d+", href):
+                    if href.startswith("/"):
+                        result = f"https://www.uta-net.com{href}"
+                    elif "uta-net.com" in href:
+                        result = href
+                    else:
+                        continue
+                    print(f"[scraper] found: {result}")
+                    return result
+            print(f"[scraper] uta-net: no song links found for '{kw}'")
+        except Exception as e:
+            print(f"[scraper] uta-net error for '{kw}': {e}")
     return None
 
 
 def _search_utamap(title: str, artist: str) -> str | None:
     """直接搜尋 utamap.com"""
-    kw = urllib.parse.quote(f"{title} {artist}")
+    kw = urllib.parse.quote_plus(f"{title} {artist}")
     url = f"https://www.utamap.com/searchkasi.php?strkey={kw}&shrtarget=titol"
     try:
         with httpx.Client(headers=HEADERS, timeout=10, follow_redirects=True) as client:
             resp = client.get(url)
+        print(f"[scraper] utamap search → HTTP {resp.status_code}")
         soup = BeautifulSoup(resp.text, "html.parser")
         for a in soup.find_all("a", href=re.compile(r"showkasi\.php")):
             href = a["href"]
             if not href.startswith("http"):
-                href = f"https://www.utamap.com/{href}"
+                href = f"https://www.utamap.com/{href.lstrip('/')}"
+            print(f"[scraper] utamap found: {href}")
             return href
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[scraper] utamap error: {e}")
     return None
 
 
 def search_lyrics_url(title: str, artist: str) -> str | None:
-    return _search_uta_net(title, artist) or _search_utamap(title, artist)
+    print(f"[scraper] searching lyrics for title='{title}' artist='{artist}'")
+    result = _search_uta_net(title, artist) or _search_utamap(title, artist)
+    if not result:
+        print("[scraper] all searches failed")
+    return result

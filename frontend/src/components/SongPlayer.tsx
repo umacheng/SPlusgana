@@ -279,13 +279,19 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
               </p>
 
               {/* Mark button */}
-              <button
-                onClick={markTime}
-                disabled={markIndex >= lyrics.length}
-                className="w-full py-3 rounded-xl bg-yellow-400 text-gray-950 font-semibold text-sm hover:bg-yellow-300 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                ⏱ 打點（Space）
-              </button>
+              {lyrics.length === 0 ? (
+                <div className="w-full py-3 rounded-xl border border-amber-800/50 bg-amber-900/20 text-center text-xs text-amber-500">
+                  請先在左側「歌詞來源」載入歌詞，才能打點
+                </div>
+              ) : (
+                <button
+                  onClick={markTime}
+                  disabled={markIndex >= lyrics.length}
+                  className="w-full py-3 rounded-xl bg-yellow-400 text-gray-950 font-semibold text-sm hover:bg-yellow-300 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ⏱ 打點（Space）
+                </button>
+              )}
 
               {/* Progress + undo */}
               <div className="flex items-center justify-between">
