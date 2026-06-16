@@ -9,7 +9,8 @@ export default async function PlaylistPage() {
 
   if (!user) redirect("/");
 
-  const { data: playlists } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: playlists } = await (supabase as any)
     .from("playlists")
     .select("song_id, created_at, songs(*)")
     .eq("user_id", user.id)

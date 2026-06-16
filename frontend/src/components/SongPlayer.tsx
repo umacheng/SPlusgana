@@ -42,7 +42,8 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
     // 檢查是否已收藏
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) return;
-      const { data: pl } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: pl } = await (supabase as any)
         .from("playlists")
         .select("id")
         .eq("user_id", data.user.id)
@@ -112,7 +113,8 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
       if (next >= lyrics.length) return prev;
       // 更新 Supabase
       const line = lyrics[next];
-      supabase.from("lyrics_lines").update({ time_marker: time }).eq("id", line.id).then(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from("lyrics_lines") as any).update({ time_marker: time }).eq("id", line.id).then(() => {
         setLyrics((ls) =>
           ls.map((l, i) => (i === next ? { ...l, time_marker: time } : l))
         );
@@ -135,10 +137,12 @@ export default function SongPlayer({ song, lyrics: initialLyrics }: Props) {
   async function toggleSave() {
     if (!userId) { alert("請先登入才能收藏歌曲"); return; }
     if (saved) {
-      await supabase.from("playlists").delete().eq("user_id", userId).eq("song_id", song.id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("playlists") as any).delete().eq("user_id", userId).eq("song_id", song.id);
       setSaved(false);
     } else {
-      await supabase.from("playlists").insert({ user_id: userId, song_id: song.id });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("playlists") as any).insert({ user_id: userId, song_id: song.id });
       setSaved(true);
     }
   }
