@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 
 from config import settings
 from services.youtube_service import extract_video_info
@@ -63,7 +63,7 @@ async def process_video(body: ProcessVideoRequest):
         .execute()
     )
 
-    if existing.data:
+    if existing and existing.data:
         song = existing.data
         lines_res = (
             supabase.table("lyrics_lines")
