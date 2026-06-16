@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     gemini_api_key: str
+    youtube_api_key: str
     supabase_url: str
     supabase_service_role_key: str
     allowed_origins: str = "http://localhost:3000"
